@@ -1,6 +1,7 @@
-from flask import Flask,render_template,request,jsonify
+from flask import Flask,render_template,request,jsonify,Response
 import pyttsx3, os, random
 import speech_recognition as sr
+from camera import Video
 
 app=Flask(__name__)
 
@@ -22,20 +23,27 @@ def speech_start():
 @app.route('/listen_start',methods=['POST'])
 def listen_start():
     recognized_text = "Got Cha"
+    role = "AICA"
     recognizer = sr.Recognizer()
     with sr.Microphone() as source:
         recognizer.adjust_for_ambient_noise(source, duration=1)
-        print("Im Listening...")
-        text_to_speech("Im Listening...")
-        audio_clip = recognizer.listen(source, phrase_time_limit = 7)
-        try:
-            recognized_text = recognizer.recognize_google(audio_clip)
-        except sr.UnknownValueError:
-            recognized_text = "Sorry I can't here you."
-        except sr.RequestError:
-            recognized_text = "Failed to connect to Google API."
-    
-    return jsonify({'speech': recognized_text})
+        if Video().is_human_detected() == True:
+            text_to_speech("Hello how can I help you?")
+            audio_clip = recognizer.listen(source, phrase_time_limit = 6)    
+            try:
+                recognized_text = recognizer.recognize_google(audio_clip)
+                role = "User"
+            except sr.UnknownValueError:
+                recognized_text = "Sorry I can't here you."
+                role = "AICA"
+            except sr.RequestError:
+                recognized_text = "Failed to connect to Google API."
+                role = "AICA"
+        else:
+            recognized_text = ""
+            role = ""
+            
+    return jsonify({'speech': recognized_text,'role': role})
 
 def text_to_speech(text):
     engine = pyttsx3.init()
@@ -48,6 +56,19 @@ def text_to_speech(text):
     if engine._inLoop:
         engine.endLoop()
     engine = None
+    
+def gen(camera):
+    while True:
+        frame=camera.get_frame()
+        camera.is_human_detected()
+        yield(b'--frame\r\n'
+       b'Content-Type:  image/jpeg\r\n\r\n' + frame +
+         b'\r\n\r\n')
+    
+@app.route('/video')
+def video():
+    return Response(gen(Video()),
+    mimetype='multipart/x-mixed-replace; boundary=frame')
 
 if __name__ == '__main__':
     app.run(port=5000,debug=True)

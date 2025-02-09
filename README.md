@@ -14,4 +14,6 @@ pip3 install mediapipe
 
 pip3 install pyserial
 
+python3 -m pip install pybluez
+
 python app.py

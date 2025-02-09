@@ -28,8 +28,10 @@ def listen_start():
     with sr.Microphone() as source:
         recognizer.adjust_for_ambient_noise(source, duration=1)
         if Video().is_human_detected() == True:
+            servoPos = Video().get_servos()
+            Video().send_coordinates_to_arduino(servoPos[0], servoPos[1])
             text_to_speech("Hello how can I help you?")
-            audio_clip = recognizer.listen(source, phrase_time_limit = 6)    
+            audio_clip = recognizer.listen(source, phrase_time_limit = 6) 
             try:
                 recognized_text = recognizer.recognize_google(audio_clip)
                 role = "User"

@@ -1,53 +1,67 @@
 import cv2
+from cvzone.FaceDetectionModule import FaceDetector
 import numpy as np
 import serial
-import time
 
 isHumanDetected = False
+ws, hs = 1280, 720
+detector = FaceDetector()
+servoPos = [90, 90]
 
 class Video(object):
-    def send_coordinates_to_arduino(self,x, y, w, h):
+    def send_coordinates_to_arduino(self,x, y):
         try:
-            self.board.isOpen()
             coordinates = f"{x},{y}\r"
-            self.board.write(coordinates.encode())
-            print(coordinates)
-        except IOError: 
-            self.board.close()
-            self.board.open()
+            ser = serial.Serial("COM5", 9600, timeout = 1)
+            ser.write(coordinates.encode())
+            print(coordinates.encode())
+        except serial.SerialException as e:
+            print("ERROR")
+        except TypeError as e:
+            print("ERROR")
     def __init__(self):
-        print("INIT")
-        with serial.Serial() as ser:
-                ser.baudrate = 9600
-                ser.port = 'COM4'
-                self.board = ser
-        
         self.video=cv2.VideoCapture(0)
-        self.face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+        self.video.set(3, ws)
+        self.video.set(4, hs)
     def __del__(self):
         self.video.release()
     def is_human_detected(self):
         return isHumanDetected
+    def get_servos(self):
+        return servoPos
     def get_frame(self):
+        global isHumanDetected
         success, img = self.video.read()
-        global isHumanDetected 
-        
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        faces = self.face_cascade.detectMultiScale(gray, 1.05, 8, minSize=(120,120))
-        
-        if len(faces) > 0:
-            for (x, y, w, h) in faces:
-                cv2.rectangle(img, (x, y), (x+w, y+h), (0, 255, 0), 5)
-                #self.send_coordinates_to_arduino(x, y, w, h)
-            
+        img = cv2.flip(img, 1)
+        img, bboxs = detector.findFaces(img, draw=False)
+
+        if bboxs:
+            fx, fy = bboxs[0]["center"][0], bboxs[0]["center"][1]
+            pos = [fx, fy]
+            servoX = np.interp(fx, [0, ws], [0, 180])
+            servoY = np.interp(fy, [0, hs], [0, 180])
+
+            if servoX < 0:
+                servoX = 0
+            elif servoX > 180:
+                servoX = 180
+            if servoY < 0:
+                servoY = 0
+            elif servoY > 180:
+                servoY = 180
+
+            servoPos[0] = servoX
+            servoPos[1] = servoY
+
             isHumanDetected = True
-            cv2.putText(img, "Face Detected", (50, 50), cv2.FONT_HERSHEY_PLAIN, 3, (20, 255, 1), 3 )
+            cv2.putText(img, "Face Detected", (50, 50), cv2.FONT_HERSHEY_PLAIN, 3, (255, 0, 255), 3 )
+            cv2.line(img, (0, fy), (ws, fy), (0, 0, 0), 2)  # x line
+            cv2.line(img, (fx, hs), (fx, 0), (0, 0, 0), 2)  # y line
         else:
             isHumanDetected = False
-            cv2.putText(img, "Detecting...", (50, 50), cv2.FONT_HERSHEY_PLAIN, 3, (0, 0, 255), 3)
+            cv2.putText(img, "Scanning...", (50, 50), cv2.FONT_HERSHEY_PLAIN, 3, (0, 0, 255), 3)
+            cv2.line(img, (0, 360), (ws, 360), (0, 0, 0), 2)  # x line
+            cv2.line(img, (640, hs), (640, 0), (0, 0, 0), 2)  # y line
 
-        # cv2.putText(img, f'Servo X: {int(servoPos[0])} deg', (50, 50), cv2.FONT_HERSHEY_PLAIN, 2, (255, 0, 0), 2)
-        # cv2.putText(img, f'Servo Y: {int(servoPos[1])} deg', (50, 100), cv2.FONT_HERSHEY_PLAIN, 2, (255, 0, 0), 2)
-        
         success,jpg=cv2.imencode('.jpg',img)
         return jpg.tobytes()

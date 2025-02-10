@@ -1,7 +1,10 @@
 $(document).ready(function () {
   PostSTT();
+  setInterval(GetTrack, 1000);
 })
 
+var servoPosX = null;
+var servoPosY = null;
 function PostTTS(inputText) {
   $.ajax({
     type: "post",
@@ -9,6 +12,35 @@ function PostTTS(inputText) {
     data: { inputText: inputText },
     success: function (response) {
         PostSTT()
+    },
+  });
+}
+
+function GetTrack() {
+  $.ajax({
+    type: "post",
+    url: "/get_track",
+    success: function (response) {
+        var x = parseInt(response.render_url[0])
+        var y = parseInt(response.render_url[1])
+        console.log(x + " " + y)
+        console.log(servoPosX + " " + servoPosY)
+        if(x != servoPosX && y !=servoPosY)
+        {
+            servoPosX = x;
+            servoPosY = y;
+            SendTrack()
+        }
+    },
+  });
+}
+
+function SendTrack() {
+  $.ajax({
+    type: "post",
+    url: "/send_track",
+    success: function (response) {
+        console.log("Sent")
     },
   });
 }

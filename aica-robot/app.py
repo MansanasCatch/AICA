@@ -2,6 +2,7 @@ from flask import Flask,render_template,request,jsonify,Response
 import pyttsx3, os, random
 import speech_recognition as sr
 from camera import Video
+import serial
 
 app=Flask(__name__)
 
@@ -28,8 +29,6 @@ def listen_start():
     with sr.Microphone() as source:
         recognizer.adjust_for_ambient_noise(source, duration=1)
         if Video().is_human_detected() == True:
-            servoPos = Video().get_servos()
-            Video().send_coordinates_to_arduino(servoPos[0], servoPos[1])
             text_to_speech("Hello how can I help you?")
             audio_clip = recognizer.listen(source, phrase_time_limit = 6) 
             try:
@@ -46,6 +45,32 @@ def listen_start():
             role = ""
             
     return jsonify({'speech': recognized_text,'role': role})
+
+@app.route('/send_track',methods=['POST'])
+def send_track():
+    if request.method == 'POST':
+        servoPos = Video().get_servos()
+        send_coordinates_to_arduino(servoPos[0], servoPos[1])
+
+        return jsonify({'render_url': servoPos})
+
+@app.route('/get_track',methods=['POST'])
+def get_track():
+    if request.method == 'POST':
+        servoPos = Video().get_servos()
+
+        return jsonify({'render_url': servoPos})
+
+def send_coordinates_to_arduino(x, y):
+        try:
+            coordinates = f"{x},{y}\r"
+            ser = serial.Serial("COM5", 9600, timeout = 1)
+            ser.write(coordinates.encode())
+            print(coordinates.encode())
+        except serial.SerialException as e:
+            print("ERROR")
+        except TypeError as e:
+            print("ERROR")
 
 def text_to_speech(text):
     engine = pyttsx3.init()

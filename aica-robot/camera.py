@@ -1,7 +1,6 @@
 import cv2
 from cvzone.FaceDetectionModule import FaceDetector
 import numpy as np
-import serial
 
 isHumanDetected = False
 ws, hs = 1280, 720
@@ -9,16 +8,6 @@ detector = FaceDetector()
 servoPos = [90, 90]
 
 class Video(object):
-    def send_coordinates_to_arduino(self,x, y):
-        try:
-            coordinates = f"{x},{y}\r"
-            ser = serial.Serial("COM5", 9600, timeout = 1)
-            ser.write(coordinates.encode())
-            print(coordinates.encode())
-        except serial.SerialException as e:
-            print("ERROR")
-        except TypeError as e:
-            print("ERROR")
     def __init__(self):
         self.video=cv2.VideoCapture(0)
         self.video.set(3, ws)

@@ -1,8 +1,12 @@
 from flask import Flask,render_template,request,jsonify,Response
-import pyttsx3, os, random
-import speech_recognition as sr
 from camera import Video
-import serial
+from subprocess import call
+import speech_recognition as sr
+import sounddevice
+import time
+import pyttsx3
+import requests
+import json
 
 app=Flask(__name__)
 
@@ -13,6 +17,12 @@ def home():
 @app.route('/refresh_page',methods=['GET'])
 def refresh_page():
     return render_template('index.html')
+
+@app.route('/is_human_detected',methods=['POST'])
+def get_track():
+    if request.method == 'POST':
+        is_human_detected = Video().is_human_detected()
+        return jsonify({'is_human_detected': is_human_detected}) 
 
 @app.route('/speech_start',methods=['POST'])
 def speech_start():
@@ -54,6 +64,24 @@ def send_track():
 
         return jsonify({'render_url': servoPos})
 
+@app.route('/SendAIRequest',methods=['POST'])
+def SendAIRequest():
+    contMessage = request.form.get("contMessage")
+    messages =[{
+        "role": "user",
+        "content": contMessage
+    }]
+    payload = {'messages': messages}
+    url = "http://localhost:3000/api/conversation"
+    headers = {'Content-Type': 'application/json', 'Accept':'application/json'}
+    response = requests.post(
+        url, 
+        data=json.dumps(payload) , 
+        headers=headers).json()
+    print(response)
+    return response    
+
+
 @app.route('/get_track',methods=['POST'])
 def get_track():
     if request.method == 'POST':
@@ -74,9 +102,7 @@ def send_coordinates_to_arduino(x, y):
 
 def text_to_speech(text):
     engine = pyttsx3.init()
-    voices = engine.getProperty('voices')
-    engine.setProperty('rate', 125)
-    engine.setProperty('voice', voices[0].id)
+    engine.setProperty('rate', 110)
     engine.say(text)
     engine.runAndWait()
     engine.stop()
@@ -98,4 +124,4 @@ def video():
     mimetype='multipart/x-mixed-replace; boundary=frame')
 
 if __name__ == '__main__':
-    app.run(port=5000,debug=True)
+    app.run(host='0.0.0.0',debug=True)
